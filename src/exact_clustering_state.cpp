@@ -10,7 +10,7 @@ ExactClusteringState::ExactClusteringState(
     std::uint64_t mu,
     MaintenanceTimingMode timing_mode)
     : state_(
-          std::move(graph), epsilon, mu, BatchMaintenanceMode::Local,
+          std::move(graph), epsilon, mu, MaintenanceMode::Local,
           false, timing_mode) {}
 
 const Graph& ExactClusteringState::graph() const noexcept {
@@ -31,7 +31,7 @@ IncrementalUpdateStats ExactClusteringState::apply_deletion(const Edge& edge) {
 
 IncrementalUpdateStats ExactClusteringState::apply_toggle(
     const Edge& edge, bool insertion) {
-    const BatchUpdateStats update = state_.apply_single_toggle(edge, insertion);
+    const BaswUpdateStats update = state_.apply_single_toggle(edge, insertion);
     return {
         update.affected_pairs,
         update.changed_similarity_edges,

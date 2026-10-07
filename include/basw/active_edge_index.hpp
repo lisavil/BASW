@@ -10,7 +10,7 @@
 
 namespace basw {
 
-struct EffectiveTopologyBatch {
+struct TopologyChanges {
     Timestamp old_time{};
     Timestamp new_time{};
     std::size_t raw_event_changes{};
@@ -18,7 +18,7 @@ struct EffectiveTopologyBatch {
     std::vector<Edge> insertions;
     std::vector<Edge> deletions;
 
-    bool operator==(const EffectiveTopologyBatch&) const = default;
+    bool operator==(const TopologyChanges&) const = default;
 };
 
 class ActiveEdgeIndex {
@@ -32,7 +32,7 @@ public:
 
     // Applies one complete slide atomically. If an expiration is inconsistent
     // with the current active multiset, no multiplicity is changed.
-    EffectiveTopologyBatch apply(const WindowBatch& batch);
+    TopologyChanges apply(const WindowTransition& transition);
 
 private:
     std::unordered_map<Edge, std::uint64_t, EdgeHash> multiplicities_;

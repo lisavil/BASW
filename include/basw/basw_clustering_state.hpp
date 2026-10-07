@@ -15,7 +15,7 @@
 
 namespace basw {
 
-enum class BatchMaintenanceMode {
+enum class MaintenanceMode {
     Local,
     GlobalRepair,
     GlobalRole,
@@ -27,12 +27,12 @@ enum class MaintenanceTimingMode {
     Uninstrumented,
 };
 
-[[nodiscard]] const char* batch_maintenance_mode_name(
-    BatchMaintenanceMode mode) noexcept;
-[[nodiscard]] BatchMaintenanceMode parse_batch_maintenance_mode(
+[[nodiscard]] const char* maintenance_mode_name(
+    MaintenanceMode mode) noexcept;
+[[nodiscard]] MaintenanceMode parse_maintenance_mode(
     std::string_view text);
 
-struct BatchUpdateStats {
+struct BaswUpdateStats {
     std::size_t touched_vertices{};
     std::size_t affected_pairs{};
     std::size_t changed_similarity_edges{};
@@ -56,13 +56,13 @@ struct BatchUpdateStats {
     }
 };
 
-class BatchExactClusteringState {
+class BaswClusteringState {
 public:
-    BatchExactClusteringState(
+    BaswClusteringState(
         Graph graph,
         RationalThreshold epsilon,
         std::uint64_t mu,
-        BatchMaintenanceMode maintenance_mode = BatchMaintenanceMode::Local,
+        MaintenanceMode maintenance_mode = MaintenanceMode::Local,
         bool allow_all_dirty_global_fallback = true,
         MaintenanceTimingMode timing_mode =
             MaintenanceTimingMode::Instrumented);
@@ -70,37 +70,37 @@ public:
     [[nodiscard]] const Graph& graph() const noexcept;
     [[nodiscard]] ClusteringSnapshot snapshot(Timestamp time) const;
 
-    BatchUpdateStats apply_batch(
+    BaswUpdateStats apply_transition(
         const std::vector<Edge>& deletions,
         const std::vector<Edge>& insertions);
     // Executes exact local maintenance for exactly one current toggle. It cannot
     // observe or coalesce a later toggle in the enclosing slide.
-    BatchUpdateStats apply_single_toggle(const Edge& edge, bool insertion);
+    BaswUpdateStats apply_single_toggle(const Edge& edge, bool insertion);
 
 private:
-    BatchUpdateStats apply_changes(
+    BaswUpdateStats apply_changes(
         std::span<const Edge> deletions,
         std::span<const Edge> insertions);
     void repair_components(
         const std::unordered_set<std::int64_t>& dirty_components,
         const std::vector<VertexId>& promoted_vertices,
         const std::vector<Edge>& new_core_connection_candidates,
-        BatchUpdateStats& stats,
+        BaswUpdateStats& stats,
         std::unordered_set<VertexId>& component_changed_vertices);
     void rebuild_components_globally(
-        BatchUpdateStats& stats,
+        BaswUpdateStats& stats,
         std::unordered_set<VertexId>& component_changed_vertices);
     void rebuild_component_membership_index();
     void refresh_roles(
         const std::unordered_set<VertexId>& role_seed_vertices,
         const std::unordered_set<VertexId>& core_influence_vertices,
-        BatchUpdateStats& stats);
-    void rebuild_roles_globally(BatchUpdateStats& stats);
+        BaswUpdateStats& stats);
+    void rebuild_roles_globally(BaswUpdateStats& stats);
 
     Graph graph_;
     RationalThreshold epsilon_;
     std::uint64_t mu_{};
-    BatchMaintenanceMode maintenance_mode_{BatchMaintenanceMode::Local};
+    MaintenanceMode maintenance_mode_{MaintenanceMode::Local};
     bool allow_all_dirty_global_fallback_{true};
     MaintenanceTimingMode timing_mode_{MaintenanceTimingMode::Instrumented};
     std::unordered_map<Edge, EdgeSimilarityState, EdgeHash> edge_states_;

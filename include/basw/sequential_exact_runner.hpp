@@ -18,8 +18,8 @@ enum class SequentialSnapshotMode {
 };
 
 struct SequentialExactStep {
-    WindowBatch event_batch;
-    EffectiveTopologyBatch topology_batch;
+    WindowTransition event_transition;
+    TopologyChanges topology_changes;
     std::vector<ClusteringSnapshot> toggle_snapshots;
     ClusteringSnapshot final_snapshot;
     IncrementalUpdateStats incremental_work;

@@ -1,4 +1,4 @@
-#include "basw/batch_exact_clustering_state.hpp"
+#include "basw/basw_clustering_state.hpp"
 
 #include "basw/jaccard.hpp"
 #include "basw/static_clustering.hpp"
@@ -22,42 +22,42 @@ bool edge_less(const Edge& left, const Edge& right) noexcept {
 
 }  // namespace
 
-const char* batch_maintenance_mode_name(
-    BatchMaintenanceMode mode) noexcept {
+const char* maintenance_mode_name(
+    MaintenanceMode mode) noexcept {
     switch (mode) {
-        case BatchMaintenanceMode::Local:
+        case MaintenanceMode::Local:
             return "local";
-        case BatchMaintenanceMode::GlobalRepair:
+        case MaintenanceMode::GlobalRepair:
             return "global_repair";
-        case BatchMaintenanceMode::GlobalRole:
+        case MaintenanceMode::GlobalRole:
             return "global_role";
-        case BatchMaintenanceMode::GlobalRepairRole:
+        case MaintenanceMode::GlobalRepairRole:
             return "global_repair_role";
     }
     return "unknown";
 }
 
-BatchMaintenanceMode parse_batch_maintenance_mode(std::string_view text) {
+MaintenanceMode parse_maintenance_mode(std::string_view text) {
     if (text == "local") {
-        return BatchMaintenanceMode::Local;
+        return MaintenanceMode::Local;
     }
     if (text == "global_repair") {
-        return BatchMaintenanceMode::GlobalRepair;
+        return MaintenanceMode::GlobalRepair;
     }
     if (text == "global_role") {
-        return BatchMaintenanceMode::GlobalRole;
+        return MaintenanceMode::GlobalRole;
     }
     if (text == "global_repair_role") {
-        return BatchMaintenanceMode::GlobalRepairRole;
+        return MaintenanceMode::GlobalRepairRole;
     }
-    throw std::invalid_argument("unknown batch maintenance mode");
+    throw std::invalid_argument("unknown maintenance mode");
 }
 
-BatchExactClusteringState::BatchExactClusteringState(
+BaswClusteringState::BaswClusteringState(
     Graph graph,
     RationalThreshold epsilon,
     std::uint64_t mu,
-    BatchMaintenanceMode maintenance_mode,
+    MaintenanceMode maintenance_mode,
     bool allow_all_dirty_global_fallback,
     MaintenanceTimingMode timing_mode)
     : graph_(std::move(graph)),
@@ -77,11 +77,11 @@ BatchExactClusteringState::BatchExactClusteringState(
     roles_ = initial.roles;
 }
 
-const Graph& BatchExactClusteringState::graph() const noexcept {
+const Graph& BaswClusteringState::graph() const noexcept {
     return graph_;
 }
 
-ClusteringSnapshot BatchExactClusteringState::snapshot(Timestamp time) const {
+ClusteringSnapshot BaswClusteringState::snapshot(Timestamp time) const {
     ClusteringSnapshot result;
     result.time = time;
     result.edges.reserve(edge_states_.size());
@@ -109,42 +109,42 @@ ClusteringSnapshot BatchExactClusteringState::snapshot(Timestamp time) const {
     return result;
 }
 
-BatchUpdateStats BatchExactClusteringState::apply_batch(
+BaswUpdateStats BaswClusteringState::apply_transition(
     const std::vector<Edge>& deletions,
     const std::vector<Edge>& insertions) {
     return apply_changes(deletions, insertions);
 }
 
-BatchUpdateStats BatchExactClusteringState::apply_single_toggle(
+BaswUpdateStats BaswClusteringState::apply_single_toggle(
     const Edge& edge, bool insertion) {
     const std::span<const Edge> one(&edge, 1);
     return insertion ? apply_changes({}, one) : apply_changes(one, {});
 }
 
-BatchUpdateStats BatchExactClusteringState::apply_changes(
+BaswUpdateStats BaswClusteringState::apply_changes(
     std::span<const Edge> deletions,
     std::span<const Edge> insertions) {
     using Clock = std::chrono::steady_clock;
-    BatchUpdateStats stats;
+    BaswUpdateStats stats;
     const bool instrumented =
         timing_mode_ == MaintenanceTimingMode::Instrumented;
     Clock::time_point affected_start;
     if (instrumented) {
         affected_start = Clock::now();
     }
-    std::unordered_set<Edge, EdgeHash> batch_edges;
-    batch_edges.reserve(deletions.size() + insertions.size());
+    std::unordered_set<Edge, EdgeHash> transition_edges;
+    transition_edges.reserve(deletions.size() + insertions.size());
     for (const Edge& edge : deletions) {
-        if (!batch_edges.insert(edge).second) {
-            throw std::invalid_argument("duplicate edge in topology batch");
+        if (!transition_edges.insert(edge).second) {
+            throw std::invalid_argument("duplicate edge in topology transition");
         }
         if (!graph_.has_edge(edge.u, edge.v)) {
             throw std::invalid_argument("cannot delete an inactive edge");
         }
     }
     for (const Edge& edge : insertions) {
-        if (!batch_edges.insert(edge).second) {
-            throw std::invalid_argument("edge appears more than once in topology batch");
+        if (!transition_edges.insert(edge).second) {
+            throw std::invalid_argument("edge appears more than once in topology transition");
         }
         if (graph_.has_edge(edge.u, edge.v)) {
             throw std::invalid_argument("cannot insert an already active edge");
@@ -152,8 +152,8 @@ BatchUpdateStats BatchExactClusteringState::apply_changes(
     }
 
     std::unordered_set<VertexId> touched;
-    touched.reserve(2 * batch_edges.size());
-    for (const Edge& edge : batch_edges) {
+    touched.reserve(2 * transition_edges.size());
+    for (const Edge& edge : transition_edges) {
         touched.insert(edge.u);
         touched.insert(edge.v);
     }
@@ -177,12 +177,12 @@ BatchUpdateStats BatchExactClusteringState::apply_changes(
 
     for (const Edge& edge : deletions) {
         if (!graph_.remove_edge(edge.u, edge.v)) {
-            throw std::logic_error("validated batch deletion did not change graph");
+            throw std::logic_error("validated transition deletion did not change graph");
         }
     }
     for (const Edge& edge : insertions) {
         if (!graph_.add_edge(edge.u, edge.v)) {
-            throw std::logic_error("validated batch insertion did not change graph");
+            throw std::logic_error("validated transition insertion did not change graph");
         }
     }
 
@@ -295,7 +295,7 @@ BatchUpdateStats BatchExactClusteringState::apply_changes(
                 core_end - core_start).count());
     }
 
-    if (!batch_edges.empty()) {
+    if (!transition_edges.empty()) {
         std::unordered_set<VertexId> component_changed_vertices;
         Clock::time_point repair_start;
         if (instrumented) {
@@ -327,8 +327,8 @@ BatchUpdateStats BatchExactClusteringState::apply_changes(
         if (instrumented) {
             role_start = Clock::now();
         }
-        if (maintenance_mode_ == BatchMaintenanceMode::GlobalRole ||
-            maintenance_mode_ == BatchMaintenanceMode::GlobalRepairRole) {
+        if (maintenance_mode_ == MaintenanceMode::GlobalRole ||
+            maintenance_mode_ == MaintenanceMode::GlobalRepairRole) {
             rebuild_roles_globally(stats);
         } else {
             refresh_roles(role_seed_vertices, core_influence_vertices, stats);
@@ -343,14 +343,14 @@ BatchUpdateStats BatchExactClusteringState::apply_changes(
     return stats;
 }
 
-void BatchExactClusteringState::repair_components(
+void BaswClusteringState::repair_components(
     const std::unordered_set<std::int64_t>& dirty_components,
     const std::vector<VertexId>& promoted_vertices,
     const std::vector<Edge>& new_core_connection_candidates,
-    BatchUpdateStats& stats,
+    BaswUpdateStats& stats,
     std::unordered_set<VertexId>& component_changed_vertices) {
-    if (maintenance_mode_ == BatchMaintenanceMode::GlobalRepair ||
-        maintenance_mode_ == BatchMaintenanceMode::GlobalRepairRole ||
+    if (maintenance_mode_ == MaintenanceMode::GlobalRepair ||
+        maintenance_mode_ == MaintenanceMode::GlobalRepairRole ||
         (allow_all_dirty_global_fallback_ && !dirty_components.empty() &&
          dirty_components.size() == component_count_)) {
         rebuild_components_globally(stats, component_changed_vertices);
@@ -561,8 +561,8 @@ void BatchExactClusteringState::repair_components(
     stats.repair_edges = examined_core_edges.size();
 }
 
-void BatchExactClusteringState::rebuild_components_globally(
-    BatchUpdateStats& stats,
+void BaswClusteringState::rebuild_components_globally(
+    BaswUpdateStats& stats,
     std::unordered_set<VertexId>& component_changed_vertices) {
     const std::vector<std::int64_t> old_components = core_component_;
     core_component_.assign(graph_.vertex_count(), -1);
@@ -611,7 +611,7 @@ void BatchExactClusteringState::rebuild_components_globally(
     rebuild_component_membership_index();
 }
 
-void BatchExactClusteringState::rebuild_component_membership_index() {
+void BaswClusteringState::rebuild_component_membership_index() {
     component_vertices_.assign(graph_.vertex_count(), {});
     component_count_ = 0;
     for (VertexId vertex = 0; vertex < graph_.vertex_count(); ++vertex) {
@@ -635,10 +635,10 @@ void BatchExactClusteringState::rebuild_component_membership_index() {
     }
 }
 
-void BatchExactClusteringState::refresh_roles(
+void BaswClusteringState::refresh_roles(
     const std::unordered_set<VertexId>& role_seed_vertices,
     const std::unordered_set<VertexId>& core_influence_vertices,
-    BatchUpdateStats& stats) {
+    BaswUpdateStats& stats) {
     std::unordered_set<VertexId> primary_boundary;
     std::unordered_set<VertexId> membership_changed_vertices;
     std::unordered_set<VertexId> refreshed_non_core_vertices;
@@ -742,8 +742,8 @@ void BatchExactClusteringState::refresh_roles(
     stats.role_boundary_vertices = refreshed_non_core_vertices.size();
 }
 
-void BatchExactClusteringState::rebuild_roles_globally(
-    BatchUpdateStats& stats) {
+void BaswClusteringState::rebuild_roles_globally(
+    BaswUpdateStats& stats) {
     memberships_.assign(graph_.vertex_count(), {});
     roles_.assign(graph_.vertex_count(), VertexRole::Outlier);
 

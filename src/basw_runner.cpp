@@ -1,4 +1,4 @@
-#include "basw/batch_exact_runner.hpp"
+#include "basw/basw_runner.hpp"
 
 #include <chrono>
 #include <stdexcept>
@@ -6,7 +6,7 @@
 
 namespace basw {
 
-std::vector<TemporalEvent> BatchExactRunner::validate_events(
+std::vector<TemporalEvent> BaswRunner::validate_events(
     std::size_t vertex_count,
     std::vector<TemporalEvent> events) {
     for (const TemporalEvent& event : events) {
@@ -18,7 +18,7 @@ std::vector<TemporalEvent> BatchExactRunner::validate_events(
     return events;
 }
 
-Graph BatchExactRunner::build_initial_graph(
+Graph BaswRunner::build_initial_graph(
     std::size_t vertex_count,
     const std::vector<TemporalEvent>& initial_events) {
     Graph graph(vertex_count);
@@ -28,7 +28,7 @@ Graph BatchExactRunner::build_initial_graph(
     return graph;
 }
 
-BatchExactRunner::BatchExactRunner(
+BaswRunner::BaswRunner(
     std::size_t vertex_count,
     std::vector<TemporalEvent> events,
     Timestamp window_width,
@@ -36,7 +36,7 @@ BatchExactRunner::BatchExactRunner(
     Timestamp initial_time,
     RationalThreshold epsilon,
     std::uint64_t mu,
-    BatchMaintenanceMode maintenance_mode,
+    MaintenanceMode maintenance_mode,
     SnapshotMaterialization snapshot_materialization,
     MaintenanceTimingMode timing_mode)
     : window_engine_(
@@ -54,26 +54,26 @@ BatchExactRunner::BatchExactRunner(
           timing_mode),
       snapshot_materialization_(snapshot_materialization) {}
 
-ClusteringSnapshot BatchExactRunner::current_snapshot() const {
+ClusteringSnapshot BaswRunner::current_snapshot() const {
     return clustering_state_.snapshot(window_engine_.current_time());
 }
 
-bool BatchExactRunner::has_pending_events() const noexcept {
+bool BaswRunner::has_pending_events() const noexcept {
     return window_engine_.has_pending_events();
 }
 
-BatchExactStep BatchExactRunner::advance() {
+BaswStep BaswRunner::advance() {
     const auto transition_start = std::chrono::steady_clock::now();
-    WindowBatch event_batch = window_engine_.advance();
-    EffectiveTopologyBatch topology_batch = edge_index_.apply(event_batch);
+    WindowTransition event_transition = window_engine_.advance();
+    TopologyChanges topology_changes = edge_index_.apply(event_transition);
     const auto transition_end = std::chrono::steady_clock::now();
     const auto transition_ns =
         std::chrono::duration_cast<std::chrono::nanoseconds>(
             transition_end - transition_start).count();
 
     const auto update_start = std::chrono::steady_clock::now();
-    BatchUpdateStats batch_work = clustering_state_.apply_batch(
-        topology_batch.deletions, topology_batch.insertions);
+    BaswUpdateStats work = clustering_state_.apply_transition(
+        topology_changes.deletions, topology_changes.insertions);
     const auto update_end = std::chrono::steady_clock::now();
     const auto update_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
         update_end - update_start).count();
@@ -81,7 +81,7 @@ BatchExactStep BatchExactRunner::advance() {
     std::uint64_t snapshot_materialization_ns = 0;
     if (snapshot_materialization_ == SnapshotMaterialization::Enabled) {
         const auto snapshot_start = std::chrono::steady_clock::now();
-        final_snapshot = clustering_state_.snapshot(topology_batch.new_time);
+        final_snapshot = clustering_state_.snapshot(topology_changes.new_time);
         const auto snapshot_end = std::chrono::steady_clock::now();
         snapshot_materialization_ns = static_cast<std::uint64_t>(
             std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -89,10 +89,10 @@ BatchExactStep BatchExactRunner::advance() {
     }
 
     return {
-        std::move(event_batch),
-        std::move(topology_batch),
+        std::move(event_transition),
+        std::move(topology_changes),
         std::move(final_snapshot),
-        batch_work,
+        work,
         static_cast<std::uint64_t>(transition_ns),
         static_cast<std::uint64_t>(update_ns),
         snapshot_materialization_ns,

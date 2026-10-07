@@ -1,4 +1,4 @@
-#include "basw/batch_experiment.hpp"
+#include "basw/basw_run.hpp"
 #include "basw/event_parser.hpp"
 
 #include <charconv>
@@ -86,7 +86,7 @@ int main(int argc, char** argv) {
             metrics_output = &metrics;
         }
 
-        const basw::BatchExperimentConfig config{
+        const basw::BaswRunConfig config{
             window_width,
             slide_interval,
             initial_time,
@@ -94,8 +94,8 @@ int main(int argc, char** argv) {
             mu,
             static_cast<std::size_t>(max_slides_raw),
         };
-        const basw::BatchExperimentSummary summary =
-            basw::run_batch_experiment(parsed, config, output, metrics_output);
+        const basw::BaswRunSummary summary =
+            basw::run_basw(parsed, config, output, metrics_output);
         std::cout << "vertices=" << parsed.original_vertex_ids.size()
                   << " events=" << parsed.events.size()
                   << " self_loops_skipped=" << parsed.stats.self_loops_skipped
@@ -105,9 +105,9 @@ int main(int argc, char** argv) {
                   << " effective_insertions=" << summary.effective_insertions
                   << " effective_deletions=" << summary.effective_deletions
                   << " touched_vertices=" << summary.touched_vertices
-                  << " batch_affected_pairs=" << summary.batch_affected_pairs
+                  << " affected_pairs=" << summary.affected_pairs
                   << " transition_ns=" << summary.total_transition_ns
-                  << " batch_update_ns=" << summary.total_batch_update_ns;
+                  << " update_ns=" << summary.total_update_ns;
         if (metrics_output != nullptr) {
             std::cout << " seq_affected_pairs="
                       << summary.sequential_affected_pairs;

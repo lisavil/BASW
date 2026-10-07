@@ -37,29 +37,29 @@ std::size_t ActiveEdgeIndex::active_edge_count() const noexcept {
     return multiplicities_.size();
 }
 
-EffectiveTopologyBatch ActiveEdgeIndex::apply(const WindowBatch& batch) {
+TopologyChanges ActiveEdgeIndex::apply(const WindowTransition& transition) {
     std::unordered_map<Edge, EventCounts, EdgeHash> counts;
-    counts.reserve(batch.expired.size() + batch.arrived.size());
-    for (const TemporalEvent& event : batch.expired) {
+    counts.reserve(transition.expired.size() + transition.arrived.size());
+    for (const TemporalEvent& event : transition.expired) {
         ++counts[event.edge].expired;
     }
-    for (const TemporalEvent& event : batch.arrived) {
+    for (const TemporalEvent& event : transition.arrived) {
         ++counts[event.edge].arrived;
     }
 
-    // Validate the complete batch before mutating multiplicities_. Arrivals
+    // Validate the complete transition before mutating multiplicities_. Arrivals
     // cannot compensate for expiration records absent from the old window.
     for (const auto& [edge, event_counts] : counts) {
         if (event_counts.expired > multiplicity(edge)) {
             throw std::invalid_argument(
-                "batch expires more copies of an edge than are active");
+                "transition expires more copies of an edge than are active");
         }
     }
 
-    EffectiveTopologyBatch result{
-        batch.old_time,
-        batch.new_time,
-        batch.expired.size() + batch.arrived.size(),
+    TopologyChanges result{
+        transition.old_time,
+        transition.new_time,
+        transition.expired.size() + transition.arrived.size(),
         counts.size(),
         {},
         {}};

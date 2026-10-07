@@ -19,9 +19,9 @@ add_library(basw_core STATIC
     src/static_experiment.cpp
     src/sequential_exact_runner.cpp
     src/exact_clustering_state.cpp
-    src/batch_exact_clustering_state.cpp
-    src/batch_exact_runner.cpp
-    src/batch_experiment.cpp
+    src/basw_clustering_state.cpp
+    src/basw_runner.cpp
+    src/basw_run.cpp
     src/sequential_experiment.cpp
 )
 target_include_directories(basw_core PUBLIC include)
@@ -32,7 +32,7 @@ else()
     target_compile_options(basw_core PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
-foreach(program basw_static basw_batch basw_seq)
+foreach(program basw_static basw basw_seq)
     add_executable(${program} apps/${program}.cpp)
     target_link_libraries(${program} PRIVATE basw_core)
 endforeach()

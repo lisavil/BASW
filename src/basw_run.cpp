@@ -1,6 +1,6 @@
-#include "basw/batch_experiment.hpp"
+#include "basw/basw_run.hpp"
 
-#include "basw/batch_exact_runner.hpp"
+#include "basw/basw_runner.hpp"
 #include "basw/clustering_snapshot.hpp"
 #include "basw/sequential_exact_runner.hpp"
 
@@ -30,24 +30,24 @@ void write_metrics_header(std::ostream& output) {
     output << "snapshot_index,window_time,active_vertices,active_edges,"
               "raw_event_changes,logical_edges_touched,effective_insertions,"
               "effective_deletions,alpha,touched_vertices,"
-              "batch_affected_pairs,seq_affected_pairs,beta,"
+              "affected_pairs,seq_affected_pairs,beta,"
               "changed_similarity_edges,core_promotions,core_demotions,"
               "dirty_components,repair_vertices,repair_edges,"
               "repair_adjacency_checks,role_boundary_vertices,"
               "role_adjacency_checks,affected_discovery_ns,similarity_ns,"
               "core_ns,repair_ns,role_ns,measured_phase_ns,"
-              "transition_ns,batch_update_ns,total_ns\n";
+              "transition_ns,update_ns,total_ns\n";
 }
 
 void write_metrics_row(
     std::ostream& output,
     std::size_t snapshot_index,
     const ClusteringSnapshot& snapshot,
-    const EffectiveTopologyBatch& topology,
-    const BatchUpdateStats& work,
+    const TopologyChanges& topology,
+    const BaswUpdateStats& work,
     std::size_t sequential_affected_pairs,
     std::uint64_t transition_ns,
-    std::uint64_t batch_update_ns) {
+    std::uint64_t update_ns) {
     const std::size_t effective_toggles =
         topology.insertions.size() + topology.deletions.size();
     const double alpha = topology.raw_event_changes == 0
@@ -87,16 +87,16 @@ void write_metrics_row(
            << work.role_ns << ','
            << work.measured_phase_ns() << ','
            << transition_ns << ','
-           << batch_update_ns << ','
-           << transition_ns + batch_update_ns << '\n';
+           << update_ns << ','
+           << transition_ns + update_ns << '\n';
 }
 
 void write_metadata(
     std::ostream& output,
     const ParsedEventStream& parsed,
-    const BatchExperimentConfig& config) {
+    const BaswRunConfig& config) {
     output << "[metadata]\n"
-           << "method\tBASW-BATCH\n"
+           << "method\tBASW\n"
            << "vertices\t" << parsed.original_vertex_ids.size() << '\n'
            << "events\t" << parsed.events.size() << '\n'
            << "self_loops_skipped\t" << parsed.stats.self_loops_skipped << '\n'
@@ -106,8 +106,8 @@ void write_metadata(
            << "epsilon\t" << config.epsilon.numerator << '/'
            << config.epsilon.denominator << '\n'
            << "mu\t" << config.mu << '\n'
-           << "batch_maintenance_mode\t"
-           << batch_maintenance_mode_name(config.batch_maintenance_mode) << '\n'
+           << "maintenance_mode\t"
+           << maintenance_mode_name(config.maintenance_mode) << '\n'
            << "[vertex_map]\n";
     for (std::size_t dense = 0; dense < parsed.original_vertex_ids.size(); ++dense) {
         output << dense << '\t' << parsed.original_vertex_ids[dense] << '\n';
@@ -116,16 +116,16 @@ void write_metadata(
 
 }  // namespace
 
-BatchExperimentSummary run_batch_experiment(
+BaswRunSummary run_basw(
     const ParsedEventStream& parsed,
-    const BatchExperimentConfig& config,
+    const BaswRunConfig& config,
     std::ostream& output,
     std::ostream* metrics_output) {
     if (config.max_slides == 0) {
         throw std::invalid_argument("max_slides must be positive");
     }
 
-    BatchExactRunner runner(
+    BaswRunner runner(
         parsed.original_vertex_ids.size(),
         parsed.events,
         config.window_width,
@@ -133,7 +133,7 @@ BatchExperimentSummary run_batch_experiment(
         config.initial_time,
         config.epsilon,
         config.mu,
-        config.batch_maintenance_mode);
+        config.maintenance_mode);
     std::unique_ptr<SequentialExactRunner> sequential_reference;
     if (metrics_output != nullptr) {
         sequential_reference = std::make_unique<SequentialExactRunner>(
@@ -147,7 +147,7 @@ BatchExperimentSummary run_batch_experiment(
     }
 
     write_metadata(output, parsed, config);
-    BatchExperimentSummary summary;
+    BaswRunSummary summary;
     const ClusteringSnapshot initial_snapshot = runner.current_snapshot();
     if (sequential_reference != nullptr &&
         initial_snapshot != sequential_reference->current_snapshot()) {
@@ -161,9 +161,9 @@ BatchExperimentSummary run_batch_experiment(
             *metrics_output,
             0,
             initial_snapshot,
-            EffectiveTopologyBatch{
+            TopologyChanges{
                 initial_snapshot.time, initial_snapshot.time, 0, 0, {}, {}},
-            BatchUpdateStats{},
+            BaswUpdateStats{},
             0,
             0,
             0);
@@ -171,7 +171,7 @@ BatchExperimentSummary run_batch_experiment(
 
     while (runner.has_pending_events() &&
            summary.slides_processed < config.max_slides) {
-        BatchExactStep step = runner.advance();
+        BaswStep step = runner.advance();
         std::size_t sequential_affected_pairs = 0;
         if (sequential_reference != nullptr) {
             if (!sequential_reference->has_pending_events()) {
@@ -179,7 +179,7 @@ BatchExperimentSummary run_batch_experiment(
             }
             const SequentialExactStep sequential_step =
                 sequential_reference->advance();
-            if (step.topology_batch != sequential_step.topology_batch ||
+            if (step.topology_changes != sequential_step.topology_changes ||
                 step.final_snapshot != sequential_step.final_snapshot) {
                 throw std::logic_error("BASW and SEQ exact results differ");
             }
@@ -189,29 +189,29 @@ BatchExperimentSummary run_batch_experiment(
 
         ++summary.slides_processed;
         ++summary.snapshots_written;
-        summary.raw_event_changes += step.topology_batch.raw_event_changes;
-        summary.effective_insertions += step.topology_batch.insertions.size();
-        summary.effective_deletions += step.topology_batch.deletions.size();
-        summary.touched_vertices += step.batch_work.touched_vertices;
-        summary.batch_affected_pairs += step.batch_work.affected_pairs;
+        summary.raw_event_changes += step.topology_changes.raw_event_changes;
+        summary.effective_insertions += step.topology_changes.insertions.size();
+        summary.effective_deletions += step.topology_changes.deletions.size();
+        summary.touched_vertices += step.work.touched_vertices;
+        summary.affected_pairs += step.work.affected_pairs;
         summary.sequential_affected_pairs += sequential_affected_pairs;
-        summary.dirty_components += step.batch_work.dirty_components;
-        summary.repair_vertices += step.batch_work.repair_vertices;
-        summary.repair_edges += step.batch_work.repair_edges;
+        summary.dirty_components += step.work.dirty_components;
+        summary.repair_vertices += step.work.repair_vertices;
+        summary.repair_edges += step.work.repair_edges;
         summary.repair_adjacency_checks +=
-            step.batch_work.repair_adjacency_checks;
+            step.work.repair_adjacency_checks;
         summary.role_boundary_vertices +=
-            step.batch_work.role_boundary_vertices;
+            step.work.role_boundary_vertices;
         summary.role_adjacency_checks +=
-            step.batch_work.role_adjacency_checks;
+            step.work.role_adjacency_checks;
         summary.total_transition_ns += step.transition_ns;
-        summary.total_batch_update_ns += step.batch_update_ns;
+        summary.total_update_ns += step.update_ns;
         summary.total_affected_discovery_ns +=
-            step.batch_work.affected_discovery_ns;
-        summary.total_similarity_ns += step.batch_work.similarity_ns;
-        summary.total_core_ns += step.batch_work.core_ns;
-        summary.total_repair_ns += step.batch_work.repair_ns;
-        summary.total_role_ns += step.batch_work.role_ns;
+            step.work.affected_discovery_ns;
+        summary.total_similarity_ns += step.work.similarity_ns;
+        summary.total_core_ns += step.work.core_ns;
+        summary.total_repair_ns += step.work.repair_ns;
+        summary.total_role_ns += step.work.role_ns;
 
         output << "=== snapshot " << summary.slides_processed << " ===\n"
                << serialize_snapshot(step.final_snapshot);
@@ -220,20 +220,20 @@ BatchExperimentSummary run_batch_experiment(
                 *metrics_output,
                 summary.slides_processed,
                 step.final_snapshot,
-                step.topology_batch,
-                step.batch_work,
+                step.topology_changes,
+                step.work,
                 sequential_affected_pairs,
                 step.transition_ns,
-                step.batch_update_ns);
+                step.update_ns);
         }
     }
 
     summary.truncated_by_slide_limit = runner.has_pending_events();
     if (!output) {
-        throw std::runtime_error("failed while writing batch experiment output");
+        throw std::runtime_error("failed while writing BASW output");
     }
     if (metrics_output != nullptr && !*metrics_output) {
-        throw std::runtime_error("failed while writing batch experiment metrics");
+        throw std::runtime_error("failed while writing BASW metrics");
     }
     return summary;
 }

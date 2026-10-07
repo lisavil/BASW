@@ -36,7 +36,7 @@ void write_metrics_row(
     std::ostream& output,
     std::size_t snapshot_index,
     const ClusteringSnapshot& snapshot,
-    const EffectiveTopologyBatch& topology,
+    const TopologyChanges& topology,
     const IncrementalUpdateStats& work,
     std::uint64_t transition_ns,
     std::uint64_t sequential_update_ns) {
@@ -117,7 +117,7 @@ SequentialExperimentSummary run_sequential_experiment(
             *metrics_output,
             0,
             initial_snapshot,
-            EffectiveTopologyBatch{
+            TopologyChanges{
                 initial_snapshot.time, initial_snapshot.time, 0, 0, {}, {}},
             IncrementalUpdateStats{},
             0,
@@ -129,9 +129,9 @@ SequentialExperimentSummary run_sequential_experiment(
         SequentialExactStep step = runner.advance();
         ++summary.slides_processed;
         ++summary.snapshots_written;
-        summary.raw_event_changes += step.topology_batch.raw_event_changes;
-        summary.effective_insertions += step.topology_batch.insertions.size();
-        summary.effective_deletions += step.topology_batch.deletions.size();
+        summary.raw_event_changes += step.topology_changes.raw_event_changes;
+        summary.effective_insertions += step.topology_changes.insertions.size();
+        summary.effective_deletions += step.topology_changes.deletions.size();
         summary.affected_pairs += step.incremental_work.affected_pairs;
         summary.changed_similarity_edges +=
             step.incremental_work.changed_similarity_edges;
@@ -147,7 +147,7 @@ SequentialExperimentSummary run_sequential_experiment(
                 *metrics_output,
                 summary.slides_processed,
                 step.final_snapshot,
-                step.topology_batch,
+                step.topology_changes,
                 step.incremental_work,
                 step.transition_ns,
                 step.sequential_update_ns);

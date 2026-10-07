@@ -129,11 +129,11 @@ StaticExperimentSummary run_static_experiment(
         ++summary.slides_processed;
         ++summary.snapshots_written;
         summary.raw_event_changes +=
-            step.transition.topology_batch.raw_event_changes;
+            step.transition.topology_changes.raw_event_changes;
         summary.effective_insertions +=
-            step.transition.topology_batch.insertions.size();
+            step.transition.topology_changes.insertions.size();
         summary.effective_deletions +=
-            step.transition.topology_batch.deletions.size();
+            step.transition.topology_changes.deletions.size();
         summary.total_transition_ns += step.transition_ns;
         summary.total_static_recompute_ns += step.static_recompute_ns;
 
@@ -144,10 +144,10 @@ StaticExperimentSummary run_static_experiment(
                 *metrics_output,
                 summary.slides_processed,
                 step.snapshot,
-                step.transition.topology_batch.raw_event_changes,
-                step.transition.topology_batch.logical_edges_touched,
-                step.transition.topology_batch.insertions.size(),
-                step.transition.topology_batch.deletions.size(),
+                step.transition.topology_changes.raw_event_changes,
+                step.transition.topology_changes.logical_edges_touched,
+                step.transition.topology_changes.insertions.size(),
+                step.transition.topology_changes.deletions.size(),
                 step.transition_ns,
                 step.static_recompute_ns);
         }

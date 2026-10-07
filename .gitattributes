@@ -1,2 +1,2 @@
-# Preserve the published source bytes and SHA-256 checksums.
+# Preserve source file line endings.
 * -text

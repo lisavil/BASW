@@ -10,8 +10,8 @@
 namespace basw {
 
 struct WindowTransitionResult {
-    WindowBatch event_batch;
-    EffectiveTopologyBatch topology_batch;
+    WindowTransition event_transition;
+    TopologyChanges topology_changes;
 };
 
 class ActiveWindowGraph {

@@ -4,7 +4,7 @@ Exact structural clustering over sliding-window temporal graph streams.
 
 This repository provides three algorithm implementations and a minimal runnable example:
 
-- **BASW** (`basw_batch`): batch-exact maintenance on the final graph of each window slide.
+- **BASW** (`basw`): exact maintenance after each window slide.
 - **STATIC** (`basw_static`): full recomputation after each window slide.
 - **SEQ** (`basw_seq`): exact maintenance after each effective edge deletion or insertion.
 
@@ -57,7 +57,7 @@ Example on Linux or another single-configuration build:
 ```sh
 ./build/basw_static examples/tiny_events.txt output/static.txt 4 2 3 1 2 2 10
 ./build/basw_seq examples/tiny_events.txt output/seq.txt 4 2 3 1 2 2 10
-./build/basw_batch examples/tiny_events.txt output/basw.txt 4 2 3 1 2 2 10
+./build/basw examples/tiny_events.txt output/basw.txt 4 2 3 1 2 2 10
 ```
 
 On Windows with Visual Studio:
@@ -65,7 +65,7 @@ On Windows with Visual Studio:
 ```powershell
 .\build\Release\basw_static.exe examples\tiny_events.txt output\static.txt 4 2 3 1 2 2 10
 .\build\Release\basw_seq.exe examples\tiny_events.txt output\seq.txt 4 2 3 1 2 2 10
-.\build\Release\basw_batch.exe examples\tiny_events.txt output\basw.txt 4 2 3 1 2 2 10
+.\build\Release\basw.exe examples\tiny_events.txt output\basw.txt 4 2 3 1 2 2 10
 ```
 
 The snapshot sections, beginning at `=== snapshot 0 ===`, should be identical across all three methods. Metadata headers differ because they include method-specific fields. Programs create output directories as needed and print a run summary.
@@ -76,6 +76,5 @@ The snapshot sections, beginning at `=== snapshot 0 ===`, should be identical ac
 - `src/`: shared implementation and the three clustering methods.
 - `apps/`: the three command-line entry points.
 - `examples/tiny_events.txt`: a small temporal stream with repeated interactions.
-- `SOURCE_SHA256`: checksums of the algorithm sources and example as published.
 
-The algorithm sources are preserved unchanged from the implementation. The CMake configuration builds the three programs and their required shared modules.
+The CMake configuration builds the three programs and their required shared modules.

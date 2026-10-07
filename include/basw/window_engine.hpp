@@ -7,13 +7,13 @@
 
 namespace basw {
 
-struct WindowBatch {
+struct WindowTransition {
     Timestamp old_time{};
     Timestamp new_time{};
     std::vector<TemporalEvent> expired;
     std::vector<TemporalEvent> arrived;
 
-    bool operator==(const WindowBatch&) const = default;
+    bool operator==(const WindowTransition&) const = default;
 };
 
 class WindowEngine {
@@ -35,7 +35,7 @@ public:
     [[nodiscard]] bool has_pending_events() const noexcept;
 
     // Advances exactly one slide and returns only events crossing a window boundary.
-    WindowBatch advance();
+    WindowTransition advance();
 
 private:
     std::vector<TemporalEvent> events_;

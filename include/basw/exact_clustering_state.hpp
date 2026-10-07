@@ -1,6 +1,6 @@
 #pragma once
 
-#include "basw/batch_exact_clustering_state.hpp"
+#include "basw/basw_clustering_state.hpp"
 #include "basw/clustering_snapshot.hpp"
 #include "basw/graph.hpp"
 #include "basw/types.hpp"
@@ -34,7 +34,7 @@ public:
 
 private:
     IncrementalUpdateStats apply_toggle(const Edge& edge, bool insertion);
-    BatchExactClusteringState state_;
+    BaswClusteringState state_;
 };
 
 }  // namespace basw

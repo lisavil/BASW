@@ -52,23 +52,23 @@ bool ActiveWindowGraph::has_pending_events() const noexcept {
 }
 
 WindowTransitionResult ActiveWindowGraph::advance() {
-    WindowBatch event_batch = window_engine_.advance();
-    EffectiveTopologyBatch topology_batch = edge_index_.apply(event_batch);
+    WindowTransition event_transition = window_engine_.advance();
+    TopologyChanges topology_changes = edge_index_.apply(event_transition);
 
-    for (const Edge& edge : topology_batch.deletions) {
+    for (const Edge& edge : topology_changes.deletions) {
         if (!graph_.remove_edge(edge.u, edge.v)) {
             throw std::logic_error(
                 "multiplicity index deleted an edge absent from the active graph");
         }
     }
-    for (const Edge& edge : topology_batch.insertions) {
+    for (const Edge& edge : topology_changes.insertions) {
         if (!graph_.add_edge(edge.u, edge.v)) {
             throw std::logic_error(
                 "multiplicity index inserted an edge already in the active graph");
         }
     }
 
-    return {std::move(event_batch), std::move(topology_batch)};
+    return {std::move(event_transition), std::move(topology_changes)};
 }
 
 }  // namespace basw

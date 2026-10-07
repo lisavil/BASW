@@ -64,16 +64,16 @@ bool WindowEngine::has_pending_events() const noexcept {
     return active_begin_ < active_end_ || active_end_ < events_.size();
 }
 
-WindowBatch WindowEngine::advance() {
+WindowTransition WindowEngine::advance() {
     const Timestamp old_time = current_time_;
     const Timestamp new_time = current_time_ + slide_interval_;
     const Timestamp expiration_boundary = new_time - window_width_;
 
-    WindowBatch batch{old_time, new_time, {}, {}};
+    WindowTransition transition{old_time, new_time, {}, {}};
 
     while (active_begin_ < active_end_ &&
            events_[active_begin_].timestamp <= expiration_boundary) {
-        batch.expired.push_back(events_[active_begin_]);
+        transition.expired.push_back(events_[active_begin_]);
         ++active_begin_;
     }
 
@@ -81,12 +81,12 @@ WindowBatch WindowEngine::advance() {
            events_[active_end_].timestamp <= new_time) {
         // active_end_ starts at the first event strictly after old_time, so
         // arrivals implement old_time < timestamp <= new_time.
-        batch.arrived.push_back(events_[active_end_]);
+        transition.arrived.push_back(events_[active_end_]);
         ++active_end_;
     }
 
     current_time_ = new_time;
-    return batch;
+    return transition;
 }
 
 }  // namespace basw

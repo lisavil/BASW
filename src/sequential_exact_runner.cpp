@@ -61,8 +61,8 @@ bool SequentialExactRunner::has_pending_events() const noexcept {
 
 SequentialExactStep SequentialExactRunner::advance() {
     const auto transition_start = std::chrono::steady_clock::now();
-    WindowBatch event_batch = window_engine_.advance();
-    EffectiveTopologyBatch topology_batch = edge_index_.apply(event_batch);
+    WindowTransition event_transition = window_engine_.advance();
+    TopologyChanges topology_changes = edge_index_.apply(event_transition);
     const auto transition_end = std::chrono::steady_clock::now();
     const auto transition_ns =
         std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -70,12 +70,12 @@ SequentialExactStep SequentialExactRunner::advance() {
     std::vector<ClusteringSnapshot> toggle_snapshots;
     if (snapshot_mode_ == SequentialSnapshotMode::RetainIntermediate) {
         toggle_snapshots.reserve(
-            topology_batch.deletions.size() + topology_batch.insertions.size());
+            topology_changes.deletions.size() + topology_changes.insertions.size());
     }
     IncrementalUpdateStats incremental_work;
 
     std::uint64_t update_ns = 0;
-    for (const Edge& edge : topology_batch.deletions) {
+    for (const Edge& edge : topology_changes.deletions) {
         const auto update_start = std::chrono::steady_clock::now();
         const IncrementalUpdateStats update =
             clustering_state_.apply_deletion(edge);
@@ -90,10 +90,10 @@ SequentialExactStep SequentialExactRunner::advance() {
         incremental_work.core_demotions += update.core_demotions;
         if (snapshot_mode_ == SequentialSnapshotMode::RetainIntermediate) {
             toggle_snapshots.push_back(
-                clustering_state_.snapshot(topology_batch.new_time));
+                clustering_state_.snapshot(topology_changes.new_time));
         }
     }
-    for (const Edge& edge : topology_batch.insertions) {
+    for (const Edge& edge : topology_changes.insertions) {
         const auto update_start = std::chrono::steady_clock::now();
         const IncrementalUpdateStats update =
             clustering_state_.apply_insertion(edge);
@@ -108,7 +108,7 @@ SequentialExactStep SequentialExactRunner::advance() {
         incremental_work.core_demotions += update.core_demotions;
         if (snapshot_mode_ == SequentialSnapshotMode::RetainIntermediate) {
             toggle_snapshots.push_back(
-                clustering_state_.snapshot(topology_batch.new_time));
+                clustering_state_.snapshot(topology_changes.new_time));
         }
     }
 
@@ -120,7 +120,7 @@ SequentialExactStep SequentialExactRunner::advance() {
             !toggle_snapshots.empty()) {
             final_snapshot = toggle_snapshots.back();
         } else {
-            final_snapshot = clustering_state_.snapshot(topology_batch.new_time);
+            final_snapshot = clustering_state_.snapshot(topology_changes.new_time);
         }
         const auto snapshot_end = std::chrono::steady_clock::now();
         snapshot_materialization_ns = static_cast<std::uint64_t>(
@@ -128,8 +128,8 @@ SequentialExactStep SequentialExactRunner::advance() {
                 snapshot_end - snapshot_start).count());
     }
     return {
-        std::move(event_batch),
-        std::move(topology_batch),
+        std::move(event_transition),
+        std::move(topology_changes),
         std::move(toggle_snapshots),
         std::move(final_snapshot),
         incremental_work,
