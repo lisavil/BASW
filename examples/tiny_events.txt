@@ -1,0 +1,7 @@
+# timestamp source destination
+1 alice bob
+2 bob alice
+3 bob carol
+4 carol dave
+6 alice bob
+8 dave erin
