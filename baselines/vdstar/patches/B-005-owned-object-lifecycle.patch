@@ -1,0 +1,162 @@
+diff --git a/dt/DTBucket.cpp b/dt/DTBucket.cpp
+index f8da4bb..40e3795 100644
+--- a/dt/DTBucket.cpp
++++ b/dt/DTBucket.cpp
+@@ -24,6 +24,7 @@ DTBucket::~DTBucket() {
+         buckList[i].release_space();
+     }
+     buckList.release_space();
++    cnt.release_space();
+ 
+ }
+ 
+@@ -79,6 +80,7 @@ void DTBucket::ReleaseSpace() {
+         buckList[i].release_space();
+     }
+     buckList.release_space();
++    cnt.release_space();
+ }
+ 
+ DTBucketElement* DTBucket::getElement(int i, int j) const {
+@@ -93,4 +95,3 @@ void DTBucket::updateCnt(int i, int updateCnt) const {
+     cnt[i] = updateCnt;
+ }
+ 
+-
+diff --git a/dt/DTManager.cpp b/dt/DTManager.cpp
+index 22433bf..e92dda0 100644
+--- a/dt/DTManager.cpp
++++ b/dt/DTManager.cpp
+@@ -1,5 +1,12 @@
+ #include "DTManager.h"
+ 
++DTManager::~DTManager() {
++    for (int i = 0; i < dtInstanceList.size(); ++i) {
++        delete dtInstanceList[i];
++    }
++    dtInstanceList.release_space();
++}
++
+ DTInstance *DTManager::removeInstance(int _indexToDel) {
+     int length = dtInstanceList.size();
+     DTInstance *removedInstance = dtInstanceList[_indexToDel];
+diff --git a/dt/DTManager.h b/dt/DTManager.h
+index ef33ba2..d7866f9 100644
+--- a/dt/DTManager.h
++++ b/dt/DTManager.h
+@@ -15,6 +15,12 @@ protected:
+     MyVector<DTInstance *> dtInstanceList;
+ 
+ public:
++    ~DTManager();
++
++    DTManager() = default;
++    DTManager(const DTManager &) = delete;
++    DTManager &operator=(const DTManager &) = delete;
++
+     /**
+      * Insert a DT instance at the end of the list.
+      * @param _instance
+diff --git a/graph/Graph.cpp b/graph/Graph.cpp
+index d0dcc74..1db4832 100644
+--- a/graph/Graph.cpp
++++ b/graph/Graph.cpp
+@@ -14,6 +14,15 @@ Graph::Graph(MyVector<dynscan::Vertex *> &_vList, double _rho) {
+                             omega * rho);
+ }
+ 
++Graph::~Graph() {
++    delete myJaccard;
++    myJaccard = nullptr;
++    for (int i = 0; i < vList.size(); ++i) {
++        delete vList[i];
++    }
++    vList.release_space();
++}
++
+ int Graph::insertEdge(int _vID1, int _vID2) {
+ 
+     auto *v1 = (dynscan::Vertex *) vList[_vID1 - 1];
+@@ -362,6 +371,7 @@ void Graph::checkVertexDTBucket(dynscan::Vertex *curVertex) {
+                 neighborVertex->addDTBucketElement(bucket_index, el2, neighborUpdateCnt);
+             }
+         }
++        newRounds.release_space();
+     }
+ }
+ 
+diff --git a/graph/Graph.h b/graph/Graph.h
+index fe8ea76..57bf958 100644
+--- a/graph/Graph.h
++++ b/graph/Graph.h
+@@ -59,6 +59,10 @@ public:
+      *  The constructor of Graph.
+      */
+     Graph(MyVector<dynscan::Vertex *> &_vList, double _rho);
++    ~Graph();
++
++    Graph(const Graph &) = delete;
++    Graph &operator=(const Graph &) = delete;
+     /*
+  *  Insert an edge to the graph.
+  */
+diff --git a/graph/Jaccard.h b/graph/Jaccard.h
+index ae79192..a72a5e7 100644
+--- a/graph/Jaccard.h
++++ b/graph/Jaccard.h
+@@ -26,7 +26,8 @@ private:
+     static long long group_num;
+     static const int group_size = 500000;
+ 
+-    inline bool is_a_common_vertex(const dynscan::Vertex _v, const dynscan::Vertex _u) {
++    inline bool is_a_common_vertex(const dynscan::Vertex &_v,
++                                   const dynscan::Vertex &_u) {
+         if (index <= size_v) {
+             const int v_neighbor = index < size_v ? _v.getNeighborID(index) : _v.id;
+             if (_u.has_neighbor(v_neighbor)) {
+diff --git a/graph/Vertex.cpp b/graph/Vertex.cpp
+index 1484e49..07f5ed7 100644
+--- a/graph/Vertex.cpp
++++ b/graph/Vertex.cpp
+@@ -19,6 +19,16 @@ Vertex::Vertex(const int &_id) {
+     NOPtr = new multimap<float, int>;
+ }
+ 
++Vertex::~Vertex() {
++    delete NOPtr;
++    NOPtr = nullptr;
++    delete dtBucketPtr;
++    dtBucketPtr = nullptr;
++    adjacentList.release_space();
++    neighbor_node_sc.release_space();
++    intersectionCntIndex.release_space();
++}
++
+ void Vertex::insertNeighbor(const int &_neighborID, const int &_intersectionCntManagerIndex, float simScore) {
+     adjacentList.push_back(_neighborID);
+     neighbor_node_sc.push_back(simScore);
+diff --git a/graph/Vertex.h b/graph/Vertex.h
+index 0421be4..ef3ba20 100644
+--- a/graph/Vertex.h
++++ b/graph/Vertex.h
+@@ -58,6 +58,10 @@ namespace dynscan {
+ 
+ 
+         Vertex(const int &_id);
++        ~Vertex();
++
++        Vertex(const Vertex &) = delete;
++        Vertex &operator=(const Vertex &) = delete;
+ 
+ //        Vertex(const int &_id, MyVector<int> &_adjacentList);
+ //
+diff --git a/main.cpp b/main.cpp
+index 300b564..cd51109 100644
+--- a/main.cpp
++++ b/main.cpp
+@@ -177,4 +177,5 @@ int main(int argc, char **argv) {
+     printf("---------------------------------------------------------------------\n");
+     printf("Average query time: *%.9lf*\t",
+            total_query / query_times);
++    free(edges);
+ }

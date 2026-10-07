@@ -1,0 +1,32 @@
+diff --git a/graph/Graph.cpp b/graph/Graph.cpp
+index 0f7e237..d070595 100644
+--- a/graph/Graph.cpp
++++ b/graph/Graph.cpp
+@@ -1,5 +1,6 @@
+ #include <algorithm>
+ #include <queue>
++#include <vector>
+ #include "Graph.h"
+ #include "../MyLib/MyTimer.h"
+ 
+@@ -420,10 +421,9 @@ double Graph::query(double eps, int mu) {
+     }
+     // BFS to get the results (pruned by epsilon)
+     int vertex_number = (int) vList.size();
+-    int* visited = new int[vertex_number];
+-    for (int i = 0; i < vertex_number; ++i) {
+-        visited[i] = 0;
+-    }
++    // Vertex IDs are one-based, so reserve index vertex_number as well.
++    // RAII also prevents one leaked n-element buffer per query.
++    std::vector<unsigned char> visited(vertex_number + 1, 0);
+     queue<dynscan::Vertex *> Q;
+     for (int i = 0, core_number = cores.size(); i < core_number; i++) {
+         dynscan::Vertex *v = cores[i];
+@@ -455,4 +455,4 @@ double Graph::query(double eps, int mu) {
+     }
+ //    return C;
+     return q_time;
+-}
+\ No newline at end of file
++}

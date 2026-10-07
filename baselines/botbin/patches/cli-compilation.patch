@@ -1,0 +1,9 @@
+diff --git a/main.cpp b/main.cpp
+--- a/main.cpp
++++ b/main.cpp
+@@ -333,4 +333,5 @@
+ }
+ int cnt = 0;
++int eta = 0;
+ 
+ int main(int argc, char* args[]) {

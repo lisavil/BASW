@@ -1,0 +1,79 @@
+diff --git a/graph/Graph.cpp b/graph/Graph.cpp
+index 1db4832..bc83c32 100644
+--- a/graph/Graph.cpp
++++ b/graph/Graph.cpp
+@@ -4,14 +4,18 @@
+ #include "Graph.h"
+ #include "../MyLib/MyTimer.h"
+ 
+-Graph::Graph(MyVector<dynscan::Vertex *> &_vList, double _rho) {
++Graph::Graph(MyVector<dynscan::Vertex *> &_vList, double _rho)
++    : Graph(_vList, _rho, static_cast<std::uint64_t>(std::random_device{}())) {}
++
++Graph::Graph(MyVector<dynscan::Vertex *> &_vList, double _rho,
++             std::uint64_t random_seed) {
+     vList.swap(_vList);
+     rho = _rho;
+     int vertex_number = (int) vList.size();
+     computePermutationNumber(omega * _rho);
+ //    myJaccard = new Jaccard((long double) 1.0 / FAILURE_PROB, omega * rho);
+      myJaccard = new Jaccard(static_cast<long double>(vertex_number),
+-                            omega * rho);
++                            omega * rho, random_seed);
+ }
+ 
+ Graph::~Graph() {
+diff --git a/graph/Graph.h b/graph/Graph.h
+index 57bf958..e7612e2 100644
+--- a/graph/Graph.h
++++ b/graph/Graph.h
+@@ -4,6 +4,7 @@
+ #include "Vertex.h"
+ #include "Jaccard.h"
+ #include "../MyLib/MyVector.h"
++#include <cstdint>
+ #include <cmath>
+ #include <random>
+ #include <vector>
+@@ -59,6 +60,8 @@ public:
+      *  The constructor of Graph.
+      */
+     Graph(MyVector<dynscan::Vertex *> &_vList, double _rho);
++    Graph(MyVector<dynscan::Vertex *> &_vList, double _rho,
++          std::uint64_t random_seed);
+     ~Graph();
+ 
+     Graph(const Graph &) = delete;
+diff --git a/graph/Jaccard.h b/graph/Jaccard.h
+index a72a5e7..a3bbc05 100644
+--- a/graph/Jaccard.h
++++ b/graph/Jaccard.h
+@@ -2,12 +2,12 @@
+ #define DYNSCAN_JACCARD_H
+ 
+ 
++#include <cstdint>
+ #include <random>
+ #include "Vertex.h"
+ 
+ class Jaccard {
+ private:
+-    std::random_device rd;
+     std::mt19937_64 gen;
+     std::uniform_int_distribution<long long> dis;
+     unsigned long long size_v;
+@@ -80,8 +80,9 @@ public:
+      * @param _similarity_threshold the epsilon defined on paper
+      * @param alpha times rho defined on paper
+      */
+-    Jaccard(long double _one_over_failure_prob, const double &_alpha_rho) :
+-            gen(rd()), one_over_failure_prob(_one_over_failure_prob), rho(_alpha_rho){
++    Jaccard(long double _one_over_failure_prob, const double &_alpha_rho,
++            std::uint64_t random_seed) :
++            gen(random_seed), one_over_failure_prob(_one_over_failure_prob), rho(_alpha_rho){
+         size_v = 0;
+         size_u = 0;
+         mean = 0;
+-- 
+2.25.1
+

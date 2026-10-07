@@ -1,0 +1,42 @@
+diff --git a/graph/Vertex.cpp b/graph/Vertex.cpp
+index 6e31a42..4906ebd 100644
+--- a/graph/Vertex.cpp
++++ b/graph/Vertex.cpp
+@@ -45,6 +45,14 @@ void Vertex::updateNeighborSimScore(float sco, const int _neighborID) {
+ 
+ void Vertex::deleteNeighbor(const int _neighborID) {
+     int _index = neighborIDAdjacentIndexMap.at(_neighborID);
++    float pre_sco = neighbor_node_sc[_index];
++    auto range = NOPtr->equal_range(pre_sco);
++    for (auto it = range.first; it != range.second; ++it) {
++        if (it->second == _neighborID) {
++            NOPtr->erase(it);
++            break;
++        }
++    }
+     neighborIDAdjacentIndexMap.erase(_neighborID);
+     int length = adjacentList.size();
+     if (length == _index + 1) {
+@@ -54,15 +62,6 @@ void Vertex::deleteNeighbor(const int _neighborID) {
+             intersectionCntIndex.pop_back();
+         }
+     } else {
+-        float pre_sco = neighbor_node_sc[_index];
+-        auto range = NOPtr->equal_range(pre_sco);
+-        for (auto it = range.first; it != range.second; ++it) {
+-            if (it->second == _neighborID) {
+-                NOPtr->erase(it);
+-                break;
+-            }
+-        }
+-
+         adjacentList[_index] = adjacentList[length - 1];
+         neighbor_node_sc[_index] = neighbor_node_sc[length - 1];
+         adjacentList.pop_back();
+@@ -87,4 +86,4 @@ int Vertex::query(double esp, int mu) {
+ 
+ 
+     return count;
+-}
+\ No newline at end of file
++}

@@ -1,0 +1,10 @@
+cmake_minimum_required(VERSION 3.16)
+project(botbin_baseline LANGUAGES CXX)
+add_library(botbin_core STATIC
+    src/Graph.cpp src/Utility.cpp src/HashSet.cpp src/BitMap.cpp)
+target_include_directories(botbin_core PUBLIC src)
+target_compile_features(botbin_core PUBLIC cxx_std_17)
+add_executable(botbin src/main.cpp)
+target_link_libraries(botbin PRIVATE botbin_core)
+add_executable(botbin_temporal src/temporal_runner.cpp)
+target_link_libraries(botbin_temporal PRIVATE botbin_core)

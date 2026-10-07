@@ -1,0 +1,258 @@
+diff --git a/graph/Graph.cpp b/graph/Graph.cpp
+index 939fc21..618d769 100644
+--- a/graph/Graph.cpp
++++ b/graph/Graph.cpp
+@@ -404,65 +404,145 @@ int Graph::makeLarge(dynscan::Vertex *v) {
+     return 0;
+ }
+ 
+-double Graph::query(double eps, int mu) {
+-    int core_num = 0;
+-    int m_C = 0;
+-    double q_time = 0;
+-    double q_start, q_end;
+-    MyVector<dynscan::Vertex *> cores;
+-    for (int i = 0, vertex_number = vList.size(); i < vertex_number; i++) {
++ClusteringResult Graph::buildClustering(double eps, int mu,
++                                        double *core_scan_time) {
++    const int vertex_number = (int) vList.size();
++    ClusteringResult result;
++    result.epsilon = eps;
++    result.mu = mu;
++    result.core_flags.assign(vertex_number + 1, 0);
++    result.core_component.assign(vertex_number + 1, -1);
++    result.memberships.resize(vertex_number + 1);
++    result.roles.assign(vertex_number + 1, VertexRole::Outlier);
++
++    double scan_time = 0;
++    for (int i = 0; i < vertex_number; ++i) {
+         dynscan::Vertex *v = (dynscan::Vertex *) vList[i];
+-        if(v->getDegree() < mu){
++        if (v == nullptr || v->getDegree() < mu) {
+             continue;
+         }
+-        q_start = getCurrentTime();
+-        int temp_m_C = v->query(eps, mu);
+-        q_end = getCurrentTime();
+-        q_time += q_end - q_start;
+-        if(temp_m_C == 0){
+-            continue;
++        const double scan_start = getCurrentTime();
++        const int core_signal = v->query(eps, mu);
++        scan_time += getCurrentTime() - scan_start;
++        if (core_signal != 0) {
++            result.core_flags[v->id] = 1;
+         }
+-        else{
+-            core_num += 1;
+-            m_C += temp_m_C;
+-            cores.push_back(v);
++    }
++    if (core_scan_time != nullptr) {
++        *core_scan_time = scan_time;
++    }
+ 
++    for (int i = 0; i < vertex_number; ++i) {
++        dynscan::Vertex *u = (dynscan::Vertex *) vList[i];
++        if (u == nullptr) {
++            continue;
++        }
++        for (auto rit = u->NOPtr->rbegin(); rit != u->NOPtr->rend(); ++rit) {
++            const int v = rit->second;
++            if (u->id < v) {
++                result.similar_edge_labels.push_back({u->id, v,
++                                                       rit->first >= eps});
++            }
+         }
+     }
+-    // BFS to get the results (pruned by epsilon)
+-    int vertex_number = (int) vList.size();
+-    // Vertex IDs are one-based, so reserve index vertex_number as well.
+-    // RAII also prevents one leaked n-element buffer per query.
+-    std::vector<unsigned char> visited(vertex_number + 1, 0);
+-    queue<dynscan::Vertex *> Q;
+-    for (int i = 0, core_number = cores.size(); i < core_number; i++) {
+-        dynscan::Vertex *v = cores[i];
+-        if(visited[v->id] == 1){
++    std::sort(result.similar_edge_labels.begin(),
++              result.similar_edge_labels.end(),
++              [](const SimilarEdgeLabel &lhs, const SimilarEdgeLabel &rhs) {
++                  return lhs.u < rhs.u || (lhs.u == rhs.u && lhs.v < rhs.v);
++              });
++
++    std::queue<int> pending;
++    for (int start = 1; start <= vertex_number; ++start) {
++        if (!result.core_flags[start] || result.core_component[start] != -1) {
+             continue;
+         }
+-        Q.push(v);
+-        visited[v->id] = 1;
+-        MyVector<int> C;
+-        while(!Q.empty()){
+-            dynscan::Vertex *u = Q.front();
+-            Q.pop();
++        const int component_id = (int) result.core_components.size();
++        result.core_components.emplace_back();
++        result.core_component[start] = component_id;
++        pending.push(start);
++        while (!pending.empty()) {
++            const int u_id = pending.front();
++            pending.pop();
++            result.core_components[component_id].push_back(u_id);
++            dynscan::Vertex *u = (dynscan::Vertex *) vList[u_id - 1];
+             for (auto rit = u->NOPtr->rbegin(); rit != u->NOPtr->rend(); ++rit) {
+-                if(rit->first >= eps){
+-                    int w = rit->second;
+-                    visited[w] = 1;
+-                    C.push_back(w);
+-                }
+-                else{
++                if (rit->first < eps) {
+                     break;
+                 }
++                const int v_id = rit->second;
++                if (result.core_flags[v_id] &&
++                    result.core_component[v_id] == -1) {
++                    result.core_component[v_id] = component_id;
++                    pending.push(v_id);
++                }
+             }
+         }
+-        //print out the cluster
+-//        for (int j = 0, cluster_size = C.size(); j < cluster_size; j++) {
+-//            printf("%d,", C[j]);
+-//        }
+-//        printf("\n");
++        std::sort(result.core_components[component_id].begin(),
++                  result.core_components[component_id].end());
+     }
+-//    return C;
+-    return q_time;
++
++    for (int id = 1; id <= vertex_number; ++id) {
++        if (result.core_flags[id]) {
++            result.memberships[id].push_back(result.core_component[id]);
++            result.roles[id] = VertexRole::Core;
++            continue;
++        }
++        dynscan::Vertex *v = (dynscan::Vertex *) vList[id - 1];
++        if (v == nullptr) {
++            continue;
++        }
++        for (auto rit = v->NOPtr->rbegin(); rit != v->NOPtr->rend(); ++rit) {
++            if (rit->first < eps) {
++                break;
++            }
++            const int neighbor_id = rit->second;
++            if (result.core_flags[neighbor_id]) {
++                result.memberships[id].push_back(
++                        result.core_component[neighbor_id]);
++            }
++        }
++        std::sort(result.memberships[id].begin(), result.memberships[id].end());
++        result.memberships[id].erase(
++                std::unique(result.memberships[id].begin(),
++                            result.memberships[id].end()),
++                result.memberships[id].end());
++        if (!result.memberships[id].empty()) {
++            result.roles[id] = VertexRole::Border;
++        }
++    }
++
++    for (int id = 1; id <= vertex_number; ++id) {
++        if (result.core_flags[id] || !result.memberships[id].empty()) {
++            continue;
++        }
++        dynscan::Vertex *v = (dynscan::Vertex *) vList[id - 1];
++        if (v == nullptr) {
++            continue;
++        }
++        std::vector<int> adjacent_components;
++        for (int i = 0; i < v->getDegree(); ++i) {
++            const int neighbor_id = v->getNeighborID(i);
++            adjacent_components.insert(adjacent_components.end(),
++                                       result.memberships[neighbor_id].begin(),
++                                       result.memberships[neighbor_id].end());
++        }
++        std::sort(adjacent_components.begin(), adjacent_components.end());
++        adjacent_components.erase(
++                std::unique(adjacent_components.begin(),
++                            adjacent_components.end()),
++                adjacent_components.end());
++        result.roles[id] = adjacent_components.size() >= 2
++                           ? VertexRole::Hub : VertexRole::Outlier;
++    }
++    return result;
++}
++
++ClusteringResult Graph::materializeClustering(double eps, int mu) {
++    return buildClustering(eps, mu, nullptr);
++}
++
++double Graph::query(double eps, int mu) {
++    double core_scan_time = 0;
++    (void) buildClustering(eps, mu, &core_scan_time);
++    return core_scan_time;
+ }
+diff --git a/graph/Graph.h b/graph/Graph.h
+index 3ff7b12..fe8ea76 100644
+--- a/graph/Graph.h
++++ b/graph/Graph.h
+@@ -6,6 +6,7 @@
+ #include "../MyLib/MyVector.h"
+ #include <cmath>
+ #include <random>
++#include <vector>
+ #include "../dt/DTManager.h"
+ 
+ using namespace std;
+@@ -14,6 +15,30 @@ using namespace std;
+ #define omega 0.5
+ #define FAILURE_PROB 0.001
+ 
++enum class VertexRole : unsigned char {
++    Core,
++    Border,
++    Hub,
++    Outlier
++};
++
++struct SimilarEdgeLabel {
++    int u;
++    int v;
++    bool similar;
++};
++
++struct ClusteringResult {
++    double epsilon;
++    int mu;
++    std::vector<unsigned char> core_flags;
++    std::vector<int> core_component;
++    std::vector<std::vector<int>> core_components;
++    std::vector<std::vector<int>> memberships;
++    std::vector<VertexRole> roles;
++    std::vector<SimilarEdgeLabel> similar_edge_labels;
++};
++
+ class Graph {
+ protected:
+     // The parameters of StrClu clustering.
+@@ -47,6 +72,8 @@ public:
+ 
+     double query(double eps, int mu);
+ 
++    ClusteringResult materializeClustering(double eps, int mu);
++
+ protected:
+     /**
+      * Make vertex v a large vertex
+@@ -108,6 +135,9 @@ protected:
+ 
+     void checkVertexDTBucket(dynscan::Vertex *curVertex);
+ 
++    ClusteringResult buildClustering(double eps, int mu,
++                                     double *core_scan_time);
++
+     void computePermutationNumber(double rho) {
+         int vertex_num = vList.size();
+         int max = vertex_num;

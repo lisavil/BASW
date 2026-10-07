@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.16)
+project(basw_external_baselines LANGUAGES CXX)
+if(NOT UNIX)
+    message(FATAL_ERROR "The external artifacts require Linux/POSIX APIs.")
+endif()
+include(CTest)
+add_subdirectory(vdstar)
+add_subdirectory(botbin)

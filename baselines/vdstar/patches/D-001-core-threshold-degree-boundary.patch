@@ -1,0 +1,37 @@
+diff --git a/graph/Graph.cpp b/graph/Graph.cpp
+index 445b0e6..939fc21 100644
+--- a/graph/Graph.cpp
++++ b/graph/Graph.cpp
+@@ -412,7 +412,7 @@ double Graph::query(double eps, int mu) {
+     MyVector<dynscan::Vertex *> cores;
+     for (int i = 0, vertex_number = vList.size(); i < vertex_number; i++) {
+         dynscan::Vertex *v = (dynscan::Vertex *) vList[i];
+-        if(v->getDegree() <= mu){
++        if(v->getDegree() < mu){
+             continue;
+         }
+         q_start = getCurrentTime();
+diff --git a/graph/Vertex.cpp b/graph/Vertex.cpp
+index ae07acf..1484e49 100644
+--- a/graph/Vertex.cpp
++++ b/graph/Vertex.cpp
+@@ -78,14 +78,14 @@ int Vertex::query(double esp, int mu) {
+     int count = 0;
+     for (auto rit = NOPtr->rbegin(); rit != NOPtr->rend(); ++rit) {
+         if(rit->first >= esp){
+-//            rit->second;
+-            count++;
++            ++count;
++            if (count >= mu) {
++                return count;
++            }
+         }
+         else{
+             break;
+         }
+     }
+-
+-
+-    return count;
++    return 0;
+ }

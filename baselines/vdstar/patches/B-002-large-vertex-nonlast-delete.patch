@@ -1,0 +1,17 @@
+diff --git a/graph/Vertex.cpp b/graph/Vertex.cpp
+index 4906ebd..ae07acf 100644
+--- a/graph/Vertex.cpp
++++ b/graph/Vertex.cpp
+@@ -66,8 +66,10 @@ void Vertex::deleteNeighbor(const int _neighborID) {
+         neighbor_node_sc[_index] = neighbor_node_sc[length - 1];
+         adjacentList.pop_back();
+         neighbor_node_sc.pop_back();
+-        intersectionCntIndex[_index] = intersectionCntIndex[length - 1];
+-        intersectionCntIndex.pop_back();
++        if (!is_large) {
++            intersectionCntIndex[_index] = intersectionCntIndex[length - 1];
++            intersectionCntIndex.pop_back();
++        }
+         neighborIDAdjacentIndexMap.at(Vertex::adjacentList[_index]) = _index;
+     }
+ }

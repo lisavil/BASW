@@ -1,0 +1,14 @@
+diff --git a/graph/Graph.cpp b/graph/Graph.cpp
+index 0671ea7..d0dcc74 100644
+--- a/graph/Graph.cpp
++++ b/graph/Graph.cpp
+@@ -10,7 +10,8 @@ Graph::Graph(MyVector<dynscan::Vertex *> &_vList, double _rho) {
+     int vertex_number = (int) vList.size();
+     computePermutationNumber(omega * _rho);
+ //    myJaccard = new Jaccard((long double) 1.0 / FAILURE_PROB, omega * rho);
+-     myJaccard = new Jaccard((long double) 1.0 / (1 / vertex_number), omega * rho);
++     myJaccard = new Jaccard(static_cast<long double>(vertex_number),
++                            omega * rho);
+ }
+ 
+ int Graph::insertEdge(int _vID1, int _vID2) {

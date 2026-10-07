@@ -1,0 +1,15 @@
+diff --git a/graph/Graph.cpp b/graph/Graph.cpp
+index 618d769..0671ea7 100644
+--- a/graph/Graph.cpp
++++ b/graph/Graph.cpp
+@@ -348,7 +348,9 @@ void Graph::checkVertexDTBucket(dynscan::Vertex *curVertex) {
+ 
+                 // reset DT instance threshold
+                 int union_lower_bound = 1 + std::max(curVertex->getDegree(), neighborVertex->getDegree());
+-                curInstance->reset_status(rho, union_lower_bound, updateCnt, neighborUpdateCnt);
++                curInstance->reset_status((1 - omega) * rho * rho,
++                                          union_lower_bound,
++                                          updateCnt, neighborUpdateCnt);
+ 
+ 
+                 bucket_index = curInstance->get_exp();

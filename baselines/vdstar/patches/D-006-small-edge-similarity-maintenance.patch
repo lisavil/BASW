@@ -1,0 +1,169 @@
+diff --git a/graph/Graph.cpp b/graph/Graph.cpp
+index bc83c32..d1c34fe 100644
+--- a/graph/Graph.cpp
++++ b/graph/Graph.cpp
+@@ -53,7 +53,9 @@ int Graph::insertEdge(int _vID1, int _vID2) {
+         makeLarge(v2);
+     }
+ 
+-    if (v1->isLarge() && !v2->isLarge() || v1->getDegree() > v2->getDegree()) {
++    if ((v1->isLarge() && !v2->isLarge()) ||
++        (v1->isLarge() == v2->isLarge() &&
++         v1->getDegree() > v2->getDegree())) {
+         std::swap(_vID1, _vID2);
+         std::swap(v1, v2);
+     }
+@@ -100,7 +102,8 @@ int Graph::removeEdge(int _vID1, int _vID2) {
+         }
+     }
+     if ((v1->isLarge() && !v2->isLarge()) ||
+-        v1->getDegree() > v2->getDegree()) {
++        (v1->isLarge() == v2->isLarge() &&
++         v1->getDegree() > v2->getDegree())) {
+         std::swap(_vID1, _vID2);
+         std::swap(v1, v2);
+     }
+@@ -130,8 +133,7 @@ int Graph::insertBetweenSmall(dynscan::Vertex *v1, dynscan::Vertex *v2) {
+             ++commonCnt;
+             if (neighbor_v->isLarge())
+                 continue;
+-            /// only small neighbors are saved; large neighbors are left to
+-            /// checkVertexDT()
++            // Only small-small edges use exact intersection counts.
+             v1->increaseIntersectionCnt(i);
+             v2->increaseIntersectionCnt(index);
+         }
+@@ -146,6 +148,8 @@ int Graph::insertBetweenSmall(dynscan::Vertex *v1, dynscan::Vertex *v2) {
+     v2->insertNeighbor(vID1, intersection_cnt_new_index, jSimilarity);
+     v1->setIntersectionCnt(commonCnt, intersection_cnt_new_index);
+     v2->setIntersectionCnt(commonCnt, intersection_cnt_new_index);
++    refreshSmallIncidentScores(v1);
++    refreshSmallIncidentScores(v2);
+     checkVertexDTBucket(v1);
+     checkVertexDTBucket(v2);
+ 
+@@ -164,12 +168,13 @@ int Graph::deleteBetweenSmall(dynscan::Vertex *v1, dynscan::Vertex *v2) {
+         if (neighbor_v->isLarge()) {
+             continue;
+         }
+-        // if neighbor vertex is a common neighbor of v1 and v2
+         if (index != -1) {
+             v1->decreaseIntersectionCnt(i);
+             v2->decreaseIntersectionCnt(index);
+         }
+     }
++    refreshSmallIncidentScores(v1);
++    refreshSmallIncidentScores(v2);
+     checkVertexDTBucket(v1);
+     checkVertexDTBucket(v2);
+ 
+@@ -189,7 +194,6 @@ int Graph::insertBetweenSmallAndLarge(dynscan::Vertex *v1,
+         dynscan::Vertex *neighbor_v =
+                 (dynscan::Vertex *) vList[neighborID - 1];
+         int index = v2->getAdjacentIndex(neighborID);
+-        // if neighbor vertex is a common neighbor of v1 and v2
+         if (index != -1) {
+             commonCnt++;
+             if (neighbor_v->isLarge())
+@@ -203,6 +207,7 @@ int Graph::insertBetweenSmallAndLarge(dynscan::Vertex *v1,
+             dynscan::Vertex::allocate_intersection_cnt_index();
+     v1->insertNeighbor(vID2, intersection_cnt_new_index, jSimilarity);
+     v2->insertNeighbor(vID1, -1, jSimilarity);
++    refreshSmallIncidentScores(v1);
+     checkVertexDTBucket(v1);
+     checkVertexDTBucket(v2);
+ 
+@@ -225,7 +230,6 @@ int Graph::insertBetweenSmallAndLarge(dynscan::Vertex *v1,
+ 
+ int Graph::deleteBetweenSmallAndLarge(dynscan::Vertex *v1,
+                                       dynscan::Vertex *v2) {
+-
+     int degree1 = v1->getDegree();
+ 
+     for (int i = 0; i < degree1; i++) {
+@@ -235,12 +239,11 @@ int Graph::deleteBetweenSmallAndLarge(dynscan::Vertex *v1,
+         if (neighbor_v->isLarge())
+             continue;
+         int index = v2->getAdjacentIndex(neighborID);
+-        // if neighbor vertex is a common neighbor of v1 and v2
+         if (index != -1) {
+             v1->decreaseIntersectionCnt(i);
+-
+         }
+     }
++    refreshSmallIncidentScores(v1);
+     checkVertexDTBucket(v1);
+     checkVertexDTBucket(v2);
+     return 0;
+@@ -286,13 +289,28 @@ int Graph::insertBetweenLarge(dynscan::Vertex *v1,
+ 
+ int Graph::deleteBetweenLarge(dynscan::Vertex *v1,
+                               dynscan::Vertex *v2) {
+-
+     checkVertexDTBucket(v1);
+     checkVertexDTBucket(v2);
+ 
+     return 0;
+ }
+ 
++void Graph::refreshSmallIncidentScores(dynscan::Vertex *vertex) {
++    if (vertex->isLarge()) {
++        return;
++    }
++    for (int i = 0; i < vertex->getDegree(); ++i) {
++        const int neighbor_id = vertex->getNeighborID(i);
++        auto *neighbor = (dynscan::Vertex *) vList[neighbor_id - 1];
++        if (neighbor->isLarge()) {
++            continue;
++        }
++        const double score = myJaccard->compute_similarity(*vertex, *neighbor);
++        vertex->updateNeighborSimScore(score, neighbor_id);
++        neighbor->updateNeighborSimScore(score, vertex->id);
++    }
++}
++
+ void Graph::checkVertexDTBucket(dynscan::Vertex *curVertex) {
+     curVertex->increaseUpdateCnt();
+     int VID1 = curVertex->id;
+diff --git a/graph/Graph.h b/graph/Graph.h
+index e7612e2..645cbb1 100644
+--- a/graph/Graph.h
++++ b/graph/Graph.h
+@@ -120,6 +120,8 @@ protected:
+ 
+     int deleteBetweenLarge(dynscan::Vertex *v1, dynscan::Vertex *v2);
+ 
++    void refreshSmallIncidentScores(dynscan::Vertex *vertex);
++
+ 
+     // *****************************************
+     // Functions deal with vertices and signatures
+diff --git a/graph/Jaccard.h b/graph/Jaccard.h
+index a3bbc05..654a977 100644
+--- a/graph/Jaccard.h
++++ b/graph/Jaccard.h
+@@ -107,20 +107,13 @@ public:
+     */
+     inline float compute_similarity(const dynscan::Vertex &_v, const dynscan::Vertex &_u) {
+ 
+-        if (!_v.isLarge()) {
++        if (!_v.isLarge() && !_u.isLarge()) {
+             const int uid = _u.id;
+             const int index = _v.getAdjacentIndex(uid);
+             // get number of common neighbors between v1 and v2
+             const int common = _v.getIntersectionCnt(index);
+             const double jaccard = common / (double) (_v.getDegree() + _u.getDegree() + 2 - common);
+             return jaccard;
+-        } else if (!_u.isLarge()) {
+-            const int vid = _v.id;
+-            const int index = _u.getAdjacentIndex(vid);
+-            // get number of common neighbors between v1 and v2
+-            const int common = _u.getIntersectionCnt(index);
+-            const double jaccard = common / (double) (_v.getDegree() + _u.getDegree() + 2 - common);
+-            return jaccard;
+         }
+ 
+         adjust_failure_prob_current_invoke();
+-- 
+2.25.1
+

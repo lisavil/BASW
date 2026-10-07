@@ -79,6 +79,10 @@ The snapshot sections, beginning at `=== snapshot 0 ===`, should be identical ac
 
 The CMake configuration builds the three programs and their required shared modules.
 
+## External baselines
+
+The [baselines directory](baselines/README.md) provides the adapted VD-STAR NoT v3 and BOTBIN source with independent Linux builds, upstream attribution, and interface notes. See the individual READMEs for the included adaptations and output contracts.
+
 ## Real-world datasets
 
 These are the ten real datasets described in Section 6.1 and Table 2 of the paper. The links point to the original data releases; Table 2 reports statistics after preprocessing.

@@ -1,0 +1,95 @@
+diff --git a/dt/DTInstance.h b/dt/DTInstance.h
+index 1ae54e9..3b24380 100644
+--- a/dt/DTInstance.h
++++ b/dt/DTInstance.h
+@@ -43,6 +43,11 @@ public:
+ 
+     DTBucketElement *get_element2() { return &element2; }
+ 
++    inline void set_dt_index(const int &_dtIndex) {
++        element1.dtIndex = _dtIndex;
++        element2.dtIndex = _dtIndex;
++    }
++
+ //    inline int get_my_bucket_index(const int &_neighborID) const {
+ //        return (_neighborID == element1.neighborID ? element1 : element2)
+ //                .bucket_index;
+diff --git a/dt/DTManager.cpp b/dt/DTManager.cpp
+index da387cd..22433bf 100644
+--- a/dt/DTManager.cpp
++++ b/dt/DTManager.cpp
+@@ -1,13 +1,15 @@
+ #include "DTManager.h"
+ 
+-void DTManager::removeInstance(int _indexToDel) {
++DTInstance *DTManager::removeInstance(int _indexToDel) {
+     int length = dtInstanceList.size();
+-    if (_indexToDel == length - 1) {
+-        dtInstanceList.pop_back();
+-    } else {
+-        DTInstance *temp = dtInstanceList[length - 1];
+-        dtInstanceList[length - 1] = dtInstanceList[_indexToDel];
+-        dtInstanceList[_indexToDel] = temp;
+-        dtInstanceList.pop_back();
++    DTInstance *removedInstance = dtInstanceList[_indexToDel];
++    DTInstance *movedInstance = nullptr;
++    if (_indexToDel != length - 1) {
++        movedInstance = dtInstanceList[length - 1];
++        dtInstanceList[_indexToDel] = movedInstance;
++        movedInstance->set_dt_index(_indexToDel);
+     }
++    dtInstanceList.pop_back();
++    delete removedInstance;
++    return movedInstance;
+ }
+diff --git a/dt/DTManager.h b/dt/DTManager.h
+index 01a6900..ef33ba2 100644
+--- a/dt/DTManager.h
++++ b/dt/DTManager.h
+@@ -33,7 +33,7 @@ public:
+      * @param _indexToDel
+      * @return 0 for success, and 1 for failure.
+      */
+-    void removeInstance(int _indexToDel);
++    DTInstance *removeInstance(int _indexToDel);
+ 
+     inline DTInstance *get_instance(const int &_index) {
+         return dtInstanceList[_index];
+diff --git a/graph/Graph.cpp b/graph/Graph.cpp
+index d070595..445b0e6 100644
+--- a/graph/Graph.cpp
++++ b/graph/Graph.cpp
+@@ -73,7 +73,17 @@ int Graph::removeEdge(int _vID1, int _vID2) {
+         const int element_index_2 = instance->get_element_index(_vID1);
+         v1->DeleteElement(_bucket_index, element_index_1);
+         v2->DeleteElement(_bucket_index, element_index_2);
+-        dtManager.removeInstance(dtIndex);
++        v1->erase_instance_index_map_by_neighbor_id(_vID2);
++        v2->erase_instance_index_map_by_neighbor_id(_vID1);
++        DTInstance *movedInstance = dtManager.removeInstance(dtIndex);
++        if (movedInstance != nullptr) {
++            const int movedVID1 = movedInstance->get_element2()->get_neighbor_id();
++            const int movedVID2 = movedInstance->get_element1()->get_neighbor_id();
++            auto *movedV1 = (dynscan::Vertex *) vList[movedVID1 - 1];
++            auto *movedV2 = (dynscan::Vertex *) vList[movedVID2 - 1];
++            movedV1->set_instance_index_map_by_neighbor_id(movedVID2, dtIndex);
++            movedV2->set_instance_index_map_by_neighbor_id(movedVID1, dtIndex);
++        }
+     }
+     if ((v1->isLarge() && !v2->isLarge()) ||
+         v1->getDegree() > v2->getDegree()) {
+diff --git a/graph/Vertex.h b/graph/Vertex.h
+index efac627..0421be4 100644
+--- a/graph/Vertex.h
++++ b/graph/Vertex.h
+@@ -97,6 +97,10 @@ namespace dynscan {
+             neighborID_DTInstanceIndex_Map[_neighborID] = _index;
+         }
+ 
++        inline void erase_instance_index_map_by_neighbor_id(const int &_neighborID) {
++            neighborID_DTInstanceIndex_Map.erase(_neighborID);
++        }
++
+         /**
+          * @param _neighborID
+          * @return the index of the given neighbor ID in the adjacent list of the current vertex.
