@@ -81,7 +81,7 @@ The CMake configuration builds the three programs and their required shared modu
 
 ## External baselines
 
-The [baselines directory](baselines/README.md) provides the adapted VD-STAR NoT v3 and BOTBIN source with independent Linux builds, upstream attribution, and interface notes. See the individual READMEs for the included adaptations and output contracts.
+The [baselines directory](https://github.com/lisavil/BASW/tree/main/baselines) provides the adapted VD-STAR and BOTBIN source.
 
 ## Real-world datasets
 

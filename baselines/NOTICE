@@ -1,0 +1,27 @@
+Third-party attribution
+
+VD-STAR
+Authors: Zhuowei Zhao, Junhao Gan, Boyu Ruan, Zhifeng Bao,
+Jianzhong Qi, and Sibo Wang.
+Work: Dynamic Structural Clustering Unleashed: Flexible Similarities,
+Versatile Updates and for All Parameters (KDD 2025).
+Original artifact: https://doi.org/10.5281/zenodo.15486055
+Original source: https://github.com/alvinzhaowei/DynStrClu/tree/v1.0.0
+Artifact license: Creative Commons Attribution 4.0 International.
+License terms: https://creativecommons.org/licenses/by/4.0/
+
+This publication contains modified NoT v3 source, repair patches, neutral
+sampling-counter names, and independent build files. The adapted source
+revision is 20417884fd70a5db62c9e965da6218f467f0b83e.
+
+The bundled robin-map headers are Copyright (c) 2017 Tessil, under the
+MIT license retained in vdstar/src/Tessil_robin_map/LICENSE.
+
+BOTBIN
+Original source: https://github.com/zzzzzfy/BOTBIN
+Work: Effective Indexing for Dynamic Structural Graph Clustering.
+This publication contains modified source with compilation and safety
+repairs, temporal update/query wrappers, relative dataset paths, and
+independent build files. The source retains its GS-index acknowledgment.
+Ownership and original notices remain with the respective authors;
+this publication does not assign a new license to their source.
