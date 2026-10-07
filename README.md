@@ -78,3 +78,28 @@ The snapshot sections, beginning at `=== snapshot 0 ===`, should be identical ac
 - `examples/tiny_events.txt`: a small temporal stream with repeated interactions.
 
 The CMake configuration builds the three programs and their required shared modules.
+
+## Real-world datasets
+
+These are the ten real datasets described in Section 6.1 and Table 2 of the paper. The links point to the original data releases; Table 2 reports statistics after preprocessing.
+
+| Dataset in the paper | Official source | Download |
+| --- | --- | --- |
+| Bitcoin-OTC | [SNAP](https://snap.stanford.edu/data/soc-sign-bitcoin-otc.html) | [soc-sign-bitcoinotc.csv.gz](https://snap.stanford.edu/data/soc-sign-bitcoinotc.csv.gz) |
+| CollegeMsg | [SNAP](https://snap.stanford.edu/data/CollegeMsg.html) | [CollegeMsg.txt.gz](https://snap.stanford.edu/data/CollegeMsg.txt.gz) |
+| Email-Eu-core | [SNAP temporal network](https://snap.stanford.edu/data/email-Eu-core-temporal.html) | [email-Eu-core-temporal.txt.gz](https://snap.stanford.edu/data/email-Eu-core-temporal.txt.gz) |
+| sx-MathOverflow | [SNAP](https://snap.stanford.edu/data/sx-mathoverflow.html) | [sx-mathoverflow.txt.gz](https://snap.stanford.edu/data/sx-mathoverflow.txt.gz) |
+| sx-AskUbuntu | [SNAP](https://snap.stanford.edu/data/sx-askubuntu.html) | [sx-askubuntu.txt.gz](https://snap.stanford.edu/data/sx-askubuntu.txt.gz) |
+| sx-SuperUser | [SNAP](https://snap.stanford.edu/data/sx-superuser.html) | [sx-superuser.txt.gz](https://snap.stanford.edu/data/sx-superuser.txt.gz) |
+| Wiki-Talk | [SNAP temporal network](https://snap.stanford.edu/data/wiki-talk-temporal.html) | [wiki-talk-temporal.txt.gz](https://snap.stanford.edu/data/wiki-talk-temporal.txt.gz) |
+| sx-StackOverflow | [SNAP](https://snap.stanford.edu/data/sx-stackoverflow.html) | [sx-stackoverflow.txt.gz](https://snap.stanford.edu/data/sx-stackoverflow.txt.gz) |
+| Ethereum NFT | [Live Graph Lab](https://livegraphlab.github.io/) | [meta-data.csv.zip](https://zenodo.org/records/8267012/files/meta-data.csv.zip?download=1) ([Google Drive mirror](https://drive.google.com/file/d/1lyCcfGbmU0eW7aHijKSMvmVqBVmwTsmV/view)) |
+| OpenSea NFT | [Sliti et al.](https://github.com/slitiWassim/NFT-Suspicious-Activity) | [NFTs_Dataset.zip](https://drive.upm.es/s/sLgeSrNxMEzXaEB/download) ([download page](https://drive.upm.es/s/sLgeSrNxMEzXaEB?openfile=true)) |
+
+Data selection and conversion:
+
+- **SNAP:** use the full temporal Email-Eu-core network, the complete interaction union for each `sx-*` network, and the temporal Wiki-Talk edit stream. Bitcoin-OTC rows are `source,target,rating,timestamp`; discard the rating and represent decimal-second timestamps exactly as integer microseconds. The other SNAP files use `source target timestamp` with timestamps in seconds.
+- **Ethereum NFT:** extract `logs-erc721-merge-with-value.csv` from `meta-data.csv.zip`. Use the ERC-721 transfer fields `timestamp`, `from`, and `to`; lowercase addresses and remove transfers involving the zero address and self-loops.
+- **OpenSea NFT:** extract `NFTs_Dataset/opensea_nft_transactions.parquet`. Use `closing_date`, `seller_num`, and `buyer_num`, retaining transactions from all ten chains.
+
+Convert the selected records to the `timestamp source destination` input format with integer timestamps, sort by timestamp, remove self-loops, and relabel vertices. Use seconds for the NFT datasets and match all time arguments to the selected timestamp unit. Interpret each interaction as an undirected edge and retain repeated interactions, including those with equal timestamps. Raw data counts can therefore differ from the processed counts in Table 2.
